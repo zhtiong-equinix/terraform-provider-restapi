@@ -415,12 +415,35 @@ func (obj *APIObject) deleteObject() error {
 	}
 
 	b := []byte{}
+	type MyObject struct {
+		ID string `json:"Id"`
+	}
 	destroyData, _ := json.Marshal(obj.destroyData)
 	if string(destroyData) != "{}" {
 		if obj.debug {
 			log.Printf("api_object.go: Using destroy data '%s'", string(destroyData))
 		}
 		b = destroyData
+	} else if strings.Contains(obj.deletePath, "/scanprofiles") {
+		log.Printf("The path contains '/scanprofiles', required to send body as string")
+		objectId := fmt.Sprintf("\"%s\"", obj.id)
+		b = []byte(objectId)
+		log.Printf("api_object.go: Using string id in destroy data '%s'", string(b))
+	} else if strings.Contains(obj.deletePath, "/scanpolicies") {
+		log.Printf("The path contains '/scanpolicies', required to send body as string")
+		if profileName, ok := obj.data["Name"].(string); ok {
+			fmt.Println("Extracted ProfileName:", profileName)
+			objectId := fmt.Sprintf("\"%s\"", profileName)
+			b = []byte(objectId)
+			log.Printf("api_object.go: Using string name in destroy data '%s'", string(b))
+		} else {
+			log.Printf("Failed to extract profileName as string.")
+		}
+	} else {
+		obj := MyObject{ID: string(obj.id)}
+		id, _ := json.Marshal(obj)
+		b = []byte(id)
+		log.Printf("api_object.go: Using json id in destroy data '%s'", string(b))
 	}
 
 	_, err := obj.apiClient.sendRequest(obj.destroyMethod, strings.Replace(deletePath, "{id}", obj.id, -1), string(b))
